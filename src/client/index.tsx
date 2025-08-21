@@ -14,6 +14,7 @@ import { names, type ChatMessage, type Message, type AuthMessage, type BotProtec
 import { BotProtection } from "./components/BotProtection";
 import { LoginForm } from "./components/LoginForm";
 import { ChatInterface } from "./components/ChatInterface";
+import { ModernThemeProvider } from "./components/ModernThemeProvider";
 import { setSecureCookie, getSecureCookie, removeSecureCookie } from "./utils/cookies";
 import { hashPassword, isSecureConnection, isKeyValid, sanitizeContent } from "./utils/security";
 import { formatTime } from "./utils/format";
@@ -484,11 +485,13 @@ function ChatApp() {
 
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 createRoot(document.getElementById("root")!).render(
-  <BrowserRouter>
-    <Routes>
-      <Route path="/" element={<Navigate to={`/${nanoid()}`} />} />
-      <Route path="/:room" element={<ChatApp />} />
-      <Route path="*" element={<Navigate to="/" />} />
-    </Routes>
-  </BrowserRouter>,
+  <ModernThemeProvider>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Navigate to={`/${nanoid()}`} />} />
+        <Route path="/:room" element={<ChatApp />} />
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </BrowserRouter>
+  </ModernThemeProvider>,
 );

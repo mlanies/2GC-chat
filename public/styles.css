@@ -57,6 +57,38 @@ body {
   gap: 8px;
 }
 
+/* Auto cleanup notice in header */
+.auto-cleanup-notice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.1));
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 6px;
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.auto-cleanup-notice .notice-icon {
+  font-size: 16px;
+  color: #3b82f6;
+  flex-shrink: 0;
+  animation: pulse 2s infinite;
+}
+
+.auto-cleanup-notice .notice-text {
+  color: #a0a0a0;
+  font-size: 14px;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+.auto-cleanup-notice .notice-text strong {
+  color: #ffffff;
+  font-weight: 700;
+}
+
 .session-indicator {
   background: #1e3a8a;
   color: #60a5fa;
@@ -83,6 +115,36 @@ body {
   background: #b91c1c;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+}
+
+/* Header Actions */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Theme Toggle */
+.theme-toggle {
+  background: #3b82f6;
+  border: none;
+  color: #ffffff;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 18px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.theme-toggle:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
 }
 
 .message-lifetime-notice {
@@ -188,8 +250,11 @@ body {
   background: #2563eb;
 }
 
-.channels-panel.collapsed .channels-header h3,
-.channels-panel.collapsed .channels-actions {
+.channels-panel.collapsed .channels-header h3 {
+  display: none;
+}
+
+.channels-panel.collapsed .create-channel-btn {
   display: none;
 }
 
@@ -647,9 +712,6 @@ body {
 /* Message input form */
 form.row {
   background: #1a1a1a;
-  border-top: 1px solid #2d2d2d;
-  padding: 20px 24px;
-  display: flex;
   align-items: flex-end;
   gap: 16px;
   backdrop-filter: blur(10px);
@@ -842,6 +904,20 @@ form.row {
 @media (max-width: 480px) {
   .chat-header {
     display: none;
+  }
+  
+  /* Показываем уведомление об автоочистке в мобильной версии */
+  .auto-cleanup-notice {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    z-index: 1000;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(37, 99, 235, 0.15));
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    padding: 8px 12px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   }
   
   .messages-container {

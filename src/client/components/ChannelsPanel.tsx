@@ -39,13 +39,15 @@ export function ChannelsPanel({
       <div className="channels-header">
         <h3>Каналы</h3>
         <div className="channels-actions">
-          <button
-            className="create-channel-btn"
-            onClick={() => setShowCreateForm(!showCreateForm)}
-            title="Создать канал"
-          >
-            ➕
-          </button>
+          {!isCollapsed && (
+            <button
+              className="create-channel-btn"
+              onClick={() => setShowCreateForm(!showCreateForm)}
+              title="Создать канал"
+            >
+              ➕
+            </button>
+          )}
           <button
             className="collapse-btn"
             onClick={onToggleCollapse}
