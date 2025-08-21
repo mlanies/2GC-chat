@@ -1,6 +1,15 @@
-# 2GC чат
+# 💬 Durable Chat Template
 
-Безопасный чат с паролем, push-уведомлениями и сохранением сессии, построенный на PartyKit и Durable Objects.
+<div align="center">
+
+**Современный безопасный чат в реальном времени на Cloudflare Workers**
+
+[![Deploy to Cloudflare Workers](https://img.shields.io/badge/Deploy%20to-Cloudflare%20Workers-orange?style=for-the-badge&logo=cloudflare)](https://dash.cloudflare.com/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+
+</div>
 
 ## 🌐 Продакшен
 
@@ -163,3 +172,15 @@ public/
 ### 🔗 Полезные ссылки:
 - **GitHub Actions**: https://github.com/mlanies/durable-chat-template/actions
 - **Cloudflare Dashboard**: https://dash.cloudflare.com/073ae0130b7cee5e55a1ac1a335431a8/workers/services/view/2gc-chat-secure/production/settings
+
+## 📄 Лицензия
+
+Этот проект распространяется под лицензией MIT. См. файл [LICENSE](./LICENSE) для получения дополнительной информации.
+
+---
+
+<div align="center">
+
+**Сделано с ❤️ для сообщества разработчиков**
+
+</div>
