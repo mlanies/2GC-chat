@@ -16,6 +16,20 @@
 - **🌙 Поддержка темной темы** - автоматическое переключение
 - **🤖 Защита от ботов** - Cloudflare Turnstile + кастомные задачи
 
+<div align="center">
+
+### Экран входа
+<div style="width: 600px; height: 400px; margin: 20px auto;">
+  <img src="./Assets/login.png" alt="Login Screen" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.1);">
+</div>
+
+### Интерфейс чата
+<div style="width: 800px; height: 500px; margin: 20px auto;">
+  <img src="./Assets/chat.png" alt="Chat Interface" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.1);">
+</div>
+
+</div>
+
 ## 🚀 Быстрый старт
 
 ### 1. Установка зависимостей
