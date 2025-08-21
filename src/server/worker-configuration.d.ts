@@ -5,6 +5,11 @@ declare namespace Cloudflare {
 	interface Env {
 		Chat: DurableObjectNamespace<import("./index").Chat>;
 		ASSETS: Fetcher;
+		CHAT_PASSWORD?: string;
+		ENABLE_BOT_PROTECTION?: string;
+		TURNSTILE_SITE_KEY?: string;
+		TURNSTILE_SECRET_KEY?: string;
+		MESSAGE_ENCRYPTION_KEY?: string;
 	}
 }
 interface Env extends Cloudflare.Env {}
