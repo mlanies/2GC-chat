@@ -31,19 +31,16 @@ export function BotProtection({
       try {
         const message = JSON.parse(event.data);
         
-        if (message.type === 'bot_protection_required' && message.challenge) {
-          console.log(`[${new Date().toISOString()}] Received custom challenge:`, message.challenge);
-          setCustomChallenge(message.challenge);
-          setCurrentStep(2);
-          setError('');
-        } else if (message.type === 'bot_protection_success') {
-          console.log(`[${new Date().toISOString()}] Bot protection completed successfully`);
-          onSuccess();
-        } else if (message.type === 'bot_protection_failed') {
-          console.log(`[${new Date().toISOString()}] Bot protection failed:`, message.error);
-          setError(message.error);
-          setAttempts(0);
-        }
+                          if (message.type === 'bot_protection_required' && message.challenge) {
+                    setCustomChallenge(message.challenge);
+                    setCurrentStep(2);
+                    setError('');
+                  } else if (message.type === 'bot_protection_success') {
+                    onSuccess();
+                  } else if (message.type === 'bot_protection_failed') {
+                    setError(message.error);
+                    setAttempts(0);
+                  }
       } catch (error) {
         console.error(`[${new Date().toISOString()}] Error parsing bot protection message:`, error);
       }

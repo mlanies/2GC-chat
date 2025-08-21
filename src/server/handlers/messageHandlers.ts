@@ -60,13 +60,9 @@ export async function handleChatMessage(
   const { connection, broadcastMessage, saveMessage } = context;
 
   try {
-    console.log(`[${new Date().toISOString()}] Starting to process chat message:`, parsed.type, parsed.id);
-    
     await saveMessage(parsed);
-    console.log(`[${new Date().toISOString()}] Message saved successfully`);
     
     // Отправляем push-уведомление всем подключенным пользователям
-    console.log(`[${new Date().toISOString()}] Sending push notification`);
     broadcastMessage({
       type: "push_notification",
       title: "Новое сообщение",
@@ -76,11 +72,9 @@ export async function handleChatMessage(
     
     // Отправляем сообщение всем пользователям в том же канале (включая отправителя)
     const channelId = parsed.channelId || 'general';
-    console.log(`[${new Date().toISOString()}] Broadcasting message to channel:`, channelId);
     broadcastMessage(parsed, [], channelId); // Убираем исключение отправителя
-    console.log(`[${new Date().toISOString()}] Message broadcasted successfully`);
   } catch (error) {
-    console.error(`[${new Date().toISOString()}] Error processing message:`, error);
+    // Error processing message
   }
 }
 
@@ -111,7 +105,7 @@ export async function handleChannelCreate(
       `INSERT INTO channels (id, name, description, created_at, created_by) VALUES ('${newChannel.id}', '${newChannel.name}', '${newChannel.description || ''}', ${newChannel.createdAt}, '${newChannel.createdBy}')`
     );
     
-    console.log(`[${new Date().toISOString()}] Channel created successfully:`, newChannel.name);
+
     
     // Отправляем подтверждение создателю канала
     sendToConnection({
@@ -198,7 +192,7 @@ export async function handleChannelDelete(
     // Удаляем канал из памяти
     channels.splice(channelIndex, 1);
     
-    console.log(`[${new Date().toISOString()}] Channel deleted successfully:`, channelToDelete.name);
+
     
     // Отправляем подтверждение удаления
     sendToConnection({

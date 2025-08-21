@@ -107,13 +107,8 @@ export function ChatInterface({
   // Фильтруем сообщения по текущему каналу
   const currentChannelMessages = messages.filter(msg => {
     const matches = !msg.channelId || msg.channelId === currentChannelId;
-    if (!matches) {
-      console.log(`[${new Date().toISOString()}] Filtering out message:`, msg.id, 'channel:', msg.channelId, 'current:', currentChannelId);
-    }
     return matches;
   });
-
-  console.log(`[${new Date().toISOString()}] Total messages: ${messages.length}, filtered messages: ${currentChannelMessages.length}, current channel: ${currentChannelId}`);
 
   const handleChannelSelect = (channelId: string) => {
     setCurrentChannelId(channelId);
@@ -149,14 +144,11 @@ export function ChatInterface({
   const handleDeleteChannel = (channelId: string) => {
     // Проверяем, что это не общий канал
     if (channelId === 'general') {
-      console.log(`[${new Date().toISOString()}] Cannot delete general channel`);
       return;
     }
     
     // Подтверждаем удаление
     if (window.confirm('Вы уверены, что хотите удалить этот канал? Все сообщения в нем будут потеряны.')) {
-      console.log(`[${new Date().toISOString()}] Deleting channel:`, channelId);
-      
       // Отправляем сообщение об удалении канала
       socket.send(JSON.stringify({
         type: "channel_delete",
@@ -279,16 +271,12 @@ export function ChatInterface({
             channelId: currentChannelId,
           };
 
-          console.log(`[${new Date().toISOString()}] Sending message:`, chatMessage);
-          
           socket.send(
             JSON.stringify({
               type: "add",
               ...chatMessage,
             } satisfies Message),
           );
-          
-          console.log(`[${new Date().toISOString()}] Message sent via WebSocket`);
 
           content.value = "";
           

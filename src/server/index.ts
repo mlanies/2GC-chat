@@ -46,16 +46,12 @@ export class Chat extends Server<Env> {
   channels: Channel[] = [];
 
   async onMessage(connection: Connection, message: WSMessage) {
-    console.log(`[${new Date().toISOString()}] Received message from ${connection.id}:`, message);
-    
     try {
       const parsed = JSON.parse(message as string);
-      console.log(`[${new Date().toISOString()}] Parsed message type: ${parsed.type}`);
       
       // Проверяем аутентификацию для всех сообщений кроме auth и bot protection
       if (parsed.type !== "auth" && parsed.type !== "turnstile_verify" && parsed.type !== "custom_challenge") {
         if (!this.authenticatedUsers.has(connection.id)) {
-          console.log(`[${new Date().toISOString()}] Unauthenticated user ${connection.id} tried to send message type: ${parsed.type}`);
           connection.send(JSON.stringify({
             type: "auth_required",
             botProtection: this.env.ENABLE_BOT_PROTECTION === "true" || true,
@@ -106,7 +102,6 @@ export class Chat extends Server<Env> {
 
       // Обработка сообщений чата
       if (parsed.type === "add" || parsed.type === "update") {
-        console.log(`[${new Date().toISOString()}] Processing chat message:`, parsed.type, parsed.id);
         await handleChatMessage(parsed, context);
         return;
       }
@@ -128,8 +123,6 @@ export class Chat extends Server<Env> {
         await handleChannelDelete(parsed, context);
         return;
       }
-      
-      console.log(`[${new Date().toISOString()}] Unknown message type: ${parsed.type}`);
     } catch (error) {
       console.error(`[${new Date().toISOString()}] Error processing message:`, error);
     }
@@ -157,29 +150,17 @@ export class Chat extends Server<Env> {
   // Методы для broadcast
   broadcastMessage(message: Message, exclude?: string[], targetChannelId?: string) {
     const connections = Array.from(this.getConnections());
-    console.log(`[${new Date().toISOString()}] Broadcasting message:`, {
-      type: message.type,
-      exclude: exclude || [],
-      totalConnections: connections.length,
-      excludedConnections: exclude?.length || 0,
-      messageChannelId: (message as any).channelId || 'none',
-      targetChannelId: targetChannelId || 'all'
-    });
     
     const messageString = JSON.stringify(message);
-    console.log(`[${new Date().toISOString()}] Message JSON:`, messageString);
     
     this.broadcast(messageString, exclude, targetChannelId);
-    console.log(`[${new Date().toISOString()}] Message broadcasted successfully`);
   }
 
   broadcast(message: string, exclude?: string[], targetChannelId?: string) {
     const connections = Array.from(this.getConnections());
-    console.log(`[${new Date().toISOString()}] Broadcasting to ${connections.length} connections, excluding:`, exclude || [], 'targetChannelId:', targetChannelId || 'all');
     
     for (const connection of connections) {
       if (exclude && exclude.includes(connection.id)) {
-        console.log(`[${new Date().toISOString()}] Skipping excluded connection: ${connection.id}`);
         continue;
       }
       
@@ -187,39 +168,25 @@ export class Chat extends Server<Env> {
       if (targetChannelId) {
         const userChannel = this.userChannels.get(connection.id);
         if (userChannel !== targetChannelId) {
-          console.log(`[${new Date().toISOString()}] Skipping connection ${connection.id} (channel: ${userChannel}, target: ${targetChannelId})`);
           continue;
         }
       }
       
       // Проверяем, аутентифицирован ли клиент
       const isAuthenticated = this.authenticatedUsers.has(connection.id);
-      console.log(`[${new Date().toISOString()}] Sending to connection: ${connection.id}, authenticated: ${isAuthenticated}`);
       connection.send(message);
     }
-    
-    console.log(`[${new Date().toISOString()}] Broadcast completed`);
   }
 
   // Методы для аутентификации
   async authenticateUser(connection: Connection, encryptedPassword: string) {
-    console.log(`[${new Date().toISOString()}] Authenticating user ${connection.id}`);
-    console.log(`[${new Date().toISOString()}] Expected password: ${this.roomPassword}`);
-    console.log(`[${new Date().toISOString()}] Received encrypted password: ${encryptedPassword.substring(0, 50)}...`);
-    
     try {
-      console.log(`[${new Date().toISOString()}] Decrypting password with encryption keys`);
       const decryptedPassword = await this.decryptMessage(encryptedPassword);
-      console.log(`[${new Date().toISOString()}] Decrypted password: ${decryptedPassword}`);
-      console.log(`[${new Date().toISOString()}] Comparing passwords: "${decryptedPassword}" === "${this.roomPassword}"`);
       
       // Сравниваем с хешированным паролем
       const hashedPassword = await hashPassword(this.roomPassword);
-      console.log(`[${new Date().toISOString()}] Comparing with hashed password: "${decryptedPassword}" === "${hashedPassword}"`);
       
       if (decryptedPassword === hashedPassword) {
-        console.log(`[${new Date().toISOString()}] Hashed password correct!`);
-        
         // Аутентифицируем пользователя
         this.authenticatedUsers.add(connection.id);
         
@@ -237,17 +204,13 @@ export class Chat extends Server<Env> {
           sessionToken: sessionToken.token,
           channels: this.channels
         }));
-        
-        console.log(`[${new Date().toISOString()}] Auth message sent to ${connection.id}`);
       } else {
-        console.log(`[${new Date().toISOString()}] Password incorrect`);
         connection.send(JSON.stringify({
           type: "auth_failed",
           error: "Неверный пароль"
         }));
       }
     } catch (error) {
-      console.error(`[${new Date().toISOString()}] Authentication error:`, error);
       connection.send(JSON.stringify({
         type: "auth_failed",
         error: "Ошибка аутентификации"
@@ -257,15 +220,11 @@ export class Chat extends Server<Env> {
 
   // Методы для защиты от ботов
   async handleTurnstileVerification(connection: Connection, token: string) {
-    console.log(`[${new Date().toISOString()}] Turnstile verification for ${connection.id}`);
-    
     try {
       // Проверяем токен через Cloudflare Turnstile API
       const result = await verifyTurnstileToken(token, this.turnstileSecretKey);
       
       if (result.success) {
-        console.log(`[${new Date().toISOString()}] Turnstile verification successful for ${connection.id}`);
-        
         // Генерируем кастомную задачу
         const challenge = this.generateCustomChallenge(connection.id);
         
@@ -274,8 +233,6 @@ export class Chat extends Server<Env> {
           challenge: challenge
         }));
       } else {
-        console.log(`[${new Date().toISOString()}] Turnstile verification failed for ${connection.id}:`, result['error-codes']);
-        
         const errorMessage = getTurnstileErrorMessage(result['error-codes'] || []);
         connection.send(JSON.stringify({
           type: "bot_protection_failed",
@@ -283,8 +240,6 @@ export class Chat extends Server<Env> {
         }));
       }
     } catch (error) {
-      console.error(`[${new Date().toISOString()}] Turnstile verification error for ${connection.id}:`, error);
-      
       connection.send(JSON.stringify({
         type: "bot_protection_failed",
         error: "Ошибка проверки Turnstile"
@@ -293,13 +248,10 @@ export class Chat extends Server<Env> {
   }
 
   handleCustomChallenge(connection: Connection, answer: string) {
-    console.log(`[${new Date().toISOString()}] Custom challenge for ${connection.id}: ${answer}`);
-    
     // Получаем сохраненный вызов для этого соединения
     const savedChallenge = this.botProtectionTokens.get(connection.id);
     
     if (!savedChallenge) {
-      console.log(`[${new Date().toISOString()}] No saved challenge for ${connection.id}`);
       connection.send(JSON.stringify({
         type: "bot_protection_failed",
         error: "Вызов не найден"
@@ -312,7 +264,6 @@ export class Chat extends Server<Env> {
       
       // Проверяем ответ
       if (answer.toLowerCase().trim() === challenge.answer.toLowerCase().trim()) {
-        console.log(`[${new Date().toISOString()}] Custom challenge successful for ${connection.id}`);
         this.verifiedUsers.add(connection.id);
         this.botProtectionTokens.delete(connection.id);
         
@@ -321,16 +272,12 @@ export class Chat extends Server<Env> {
           type: "bot_protection_success"
         }));
       } else {
-        console.log(`[${new Date().toISOString()}] Custom challenge failed for ${connection.id}: expected "${challenge.answer}", got "${answer}"`);
-        
         connection.send(JSON.stringify({
           type: "bot_protection_failed",
           error: "Неверный ответ"
         }));
       }
     } catch (error) {
-      console.error(`[${new Date().toISOString()}] Error parsing challenge for ${connection.id}:`, error);
-      
       connection.send(JSON.stringify({
         type: "bot_protection_failed",
         error: "Ошибка обработки вызова"
@@ -437,7 +384,6 @@ export class Chat extends Server<Env> {
     const now = Date.now();
     if (!this.encryptionKeys || now > this.encryptionKeys.expiresAt) {
       this.encryptionKeys = this.generateKeyPair();
-      console.log('Encryption keys rotated');
     }
   }
 
@@ -453,11 +399,7 @@ export class Chat extends Server<Env> {
 
   // Методы жизненного цикла
   async onStart() {
-    console.log(`[${new Date().toISOString()}] Server starting...`);
-    
     this.roomPassword = this.env.CHAT_PASSWORD || "password123";
-    console.log(`[${new Date().toISOString()}] Room password set to: ${this.roomPassword}`);
-    console.log(`[${new Date().toISOString()}] Environment CHAT_PASSWORD: ${this.env.CHAT_PASSWORD}`);
 
     this.turnstileSiteKey = this.env.TURNSTILE_SITE_KEY || "0x4AAAAAABguUlIU3ucDAGUu";
     this.turnstileSecretKey = this.env.TURNSTILE_SECRET_KEY || "0x4AAAAAABguUqNdOD0VIPwoANOa2cI-HN0";
@@ -542,10 +484,7 @@ export class Chat extends Server<Env> {
   }
 
   onConnect(connection: Connection) {
-    console.log(`[${new Date().toISOString()}] New connection: ${connection.id}`);
-    
     const botProtectionEnabled = this.env.ENABLE_BOT_PROTECTION === "true" || true;
-    console.log(`[${new Date().toISOString()}] Bot protection enabled: ${botProtectionEnabled}`);
     
     const authMessage = {
       type: 'auth_required',
@@ -555,14 +494,11 @@ export class Chat extends Server<Env> {
       keyExpiresAt: this.encryptionKeys?.expiresAt || 0,
     };
     
-    console.log(`[${new Date().toISOString()}] Sending auth_required to ${connection.id}:`, authMessage);
     connection.send(JSON.stringify(authMessage));
-    console.log(`[${new Date().toISOString()}] Auth message sent to ${connection.id}`);
   }
 
   onClose(connection: Connection) {
     const connectionId = connection.id;
-    console.log(`[${new Date().toISOString()}] Connection closed: ${connectionId}`);
     
     // Remove from authenticated users
     this.authenticatedUsers.delete(connectionId);
@@ -575,8 +511,6 @@ export class Chat extends Server<Env> {
     
     // Remove from verified users
     this.verifiedUsers.delete(connectionId);
-    
-    console.log(`[${new Date().toISOString()}] Connection ${connectionId} cleaned up`);
   }
 }
 
