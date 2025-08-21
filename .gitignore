@@ -1,6 +1,9 @@
 # Created by https://www.toptal.com/developers/gitignore/api/node,macos
 # Edit at https://www.toptal.com/developers/gitignore?templates=node,macos
 
+# Sensitive configuration files
+wrangler.toml
+
 ### macOS ###
 # General
 .DS_Store

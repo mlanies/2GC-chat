@@ -1,4 +1,4 @@
-name = "2gc-chat-secure"
+name = "your-chat-app-name"
 main = "src/server/index.ts"
 compatibility_date = "2024-01-01"
 
@@ -8,7 +8,7 @@ ENABLE_BOT_PROTECTION = "true"
 [env.production]
 vars = { 
   ENABLE_BOT_PROTECTION = "true",
-  CHAT_PASSWORD = "password123"
+  CHAT_PASSWORD = "your-secure-password-here"
 }
 
 [[env.production.durable_objects.bindings]]
