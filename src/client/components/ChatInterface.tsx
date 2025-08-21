@@ -11,6 +11,8 @@ interface ChatInterfaceProps {
   onLogout: () => void;
   isMobile: boolean;
   channels?: Channel[];
+  onChannelSwitch?: (channelId: string) => void;
+  currentChannelId?: string;
 }
 
 export function ChatInterface({ 
@@ -19,14 +21,23 @@ export function ChatInterface({
   socket, 
   onLogout,
   isMobile,
-  channels = []
+  channels = [],
+  onChannelSwitch,
+  currentChannelId: propCurrentChannelId
 }: ChatInterfaceProps) {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [showScrollButton, setShowScrollButton] = React.useState(false);
   const [deletingMessages, setDeletingMessages] = React.useState<Set<string>>(new Set());
-  const [currentChannelId, setCurrentChannelId] = useState('general');
+  const [currentChannelId, setCurrentChannelId] = useState(propCurrentChannelId || 'general');
   const [isChannelsCollapsed, setIsChannelsCollapsed] = useState(false);
   const [showLifetimeNotice, setShowLifetimeNotice] = useState(true);
+
+  // Обновляем currentChannelId когда изменяется prop
+  useEffect(() => {
+    if (propCurrentChannelId) {
+      setCurrentChannelId(propCurrentChannelId);
+    }
+  }, [propCurrentChannelId]);
 
   // Функция для форматирования времени
   const formatTime = (date: Date): string => {
@@ -94,12 +105,29 @@ export function ChatInterface({
   }, [messages, deletingMessages]);
 
   // Фильтруем сообщения по текущему каналу
-  const currentChannelMessages = messages.filter(msg => 
-    !msg.channelId || msg.channelId === currentChannelId
-  );
+  const currentChannelMessages = messages.filter(msg => {
+    const matches = !msg.channelId || msg.channelId === currentChannelId;
+    if (!matches) {
+      console.log(`[${new Date().toISOString()}] Filtering out message:`, msg.id, 'channel:', msg.channelId, 'current:', currentChannelId);
+    }
+    return matches;
+  });
+
+  console.log(`[${new Date().toISOString()}] Total messages: ${messages.length}, filtered messages: ${currentChannelMessages.length}, current channel: ${currentChannelId}`);
 
   const handleChannelSelect = (channelId: string) => {
     setCurrentChannelId(channelId);
+    
+    // Вызываем переданный обработчик
+    if (onChannelSwitch) {
+      onChannelSwitch(channelId);
+    }
+    
+    // Отправляем сообщение о переключении канала
+    socket.send(JSON.stringify({
+      type: "channel_switch",
+      channelId: channelId
+    }));
   };
 
   const handleCreateChannel = (name: string, description: string) => {
@@ -116,6 +144,25 @@ export function ChatInterface({
       type: "channel_create",
       channel: newChannel,
     }));
+  };
+
+  const handleDeleteChannel = (channelId: string) => {
+    // Проверяем, что это не общий канал
+    if (channelId === 'general') {
+      console.log(`[${new Date().toISOString()}] Cannot delete general channel`);
+      return;
+    }
+    
+    // Подтверждаем удаление
+    if (window.confirm('Вы уверены, что хотите удалить этот канал? Все сообщения в нем будут потеряны.')) {
+      console.log(`[${new Date().toISOString()}] Deleting channel:`, channelId);
+      
+      // Отправляем сообщение об удалении канала
+      socket.send(JSON.stringify({
+        type: "channel_delete",
+        channelId: channelId
+      }));
+    }
   };
 
   return (
@@ -155,6 +202,7 @@ export function ChatInterface({
           currentChannelId={currentChannelId}
           onChannelSelect={handleChannelSelect}
           onCreateChannel={handleCreateChannel}
+          onDeleteChannel={handleDeleteChannel}
           isCollapsed={isChannelsCollapsed}
           onToggleCollapse={() => setIsChannelsCollapsed(!isChannelsCollapsed)}
         />
@@ -231,12 +279,16 @@ export function ChatInterface({
             channelId: currentChannelId,
           };
 
+          console.log(`[${new Date().toISOString()}] Sending message:`, chatMessage);
+          
           socket.send(
             JSON.stringify({
               type: "add",
               ...chatMessage,
             } satisfies Message),
           );
+          
+          console.log(`[${new Date().toISOString()}] Message sent via WebSocket`);
 
           content.value = "";
           

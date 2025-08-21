@@ -6,6 +6,7 @@ interface ChannelsPanelProps {
   currentChannelId: string;
   onChannelSelect: (channelId: string) => void;
   onCreateChannel: (name: string, description: string) => void;
+  onDeleteChannel: (channelId: string) => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
 }
@@ -15,6 +16,7 @@ export function ChannelsPanel({
   currentChannelId,
   onChannelSelect,
   onCreateChannel,
+  onDeleteChannel,
   isCollapsed,
   onToggleCollapse
 }: ChannelsPanelProps) {
@@ -89,11 +91,27 @@ export function ChannelsPanel({
               <div
                 key={channel.id}
                 className={`channel-item ${currentChannelId === channel.id ? 'active' : ''}`}
-                onClick={() => onChannelSelect(channel.id)}
               >
-                <div className="channel-name">#{channel.name}</div>
-                {channel.description && (
-                  <div className="channel-description">{channel.description}</div>
+                <div 
+                  className="channel-content"
+                  onClick={() => onChannelSelect(channel.id)}
+                >
+                  <div className="channel-name">#{channel.name}</div>
+                  {channel.description && (
+                    <div className="channel-description">{channel.description}</div>
+                  )}
+                </div>
+                {channel.id !== 'general' && (
+                  <button
+                    className="delete-channel-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteChannel(channel.id);
+                    }}
+                    title="Удалить канал"
+                  >
+                    🗑️
+                  </button>
                 )}
               </div>
             ))}

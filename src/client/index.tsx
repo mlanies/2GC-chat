@@ -1,6 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { usePartySocket } from "partysocket/react";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -44,8 +44,26 @@ function ChatApp() {
   const [publicKey, setPublicKey] = useState<string>('');
   const [keyExpiresAt, setKeyExpiresAt] = useState<number>(0);
   const [sessionToken, setSessionToken] = useState<string>('');
+  const [currentChannelId, setCurrentChannelId] = useState('general');
   const { room } = useParams();
 
+  // Проверяем сохраненное состояние защиты от ботов при загрузке
+  useEffect(() => {
+    const botProtectionPassed = localStorage.getItem('bot_protection_passed');
+    const botProtectionExpiry = localStorage.getItem('bot_protection_expiry');
+    
+    if (botProtectionPassed && botProtectionExpiry) {
+      const expiryTime = parseInt(botProtectionExpiry);
+      if (Date.now() < expiryTime) {
+        console.log(`[${new Date().toISOString()}] Bot protection already passed, expires at:`, new Date(expiryTime));
+        // Защита от ботов уже пройдена и не истекла
+      } else {
+        console.log(`[${new Date().toISOString()}] Bot protection expired, clearing saved state`);
+        localStorage.removeItem('bot_protection_passed');
+        localStorage.removeItem('bot_protection_expiry');
+      }
+    }
+  }, []);
 
 
   // Проверка безопасности соединения
@@ -86,217 +104,311 @@ function ChatApp() {
     party: "chat",
     room,
     onMessage: (evt) => {
-      const message = JSON.parse(evt.data as string) as Message;
+      console.log(`[${new Date().toISOString()}] Client received WebSocket message:`, evt.data);
       
-      if (message.type === "auth_required") {
-        // 1. Сохраняем ключи
-        if (message.turnstileSiteKey) {
-          setTurnstileSiteKey(message.turnstileSiteKey);
-        }
-        if (message.publicKey) {
-          setPublicKey(message.publicKey);
-        }
-        if (message.keyExpiresAt) {
-          setKeyExpiresAt(message.keyExpiresAt);
-        }
+      try {
+        const message: Message = JSON.parse(evt.data as string);
+        console.log(`[${new Date().toISOString()}] Parsed message:`, message);
         
-        // 2. Проверяем токен сессии
-        const savedToken = getSecureCookie('session_token');
-        
-        if (savedToken && !isAutoLogin) {
-          // Пытаемся войти с токеном
-          setIsAutoLogin(true);
-          const authMessage: AuthMessage = {
-            type: "auth",
-            sessionToken: savedToken,
-          };
-          socket.send(JSON.stringify(authMessage));
-          return;
-        } else if (!savedToken && !isAutoLogin) {
-          // Нет токена, проверяем защиту от ботов
-          if (message.botProtection) {
-            setBotProtectionRequired(true);
+        switch (message.type) {
+          case 'auth_required':
+            console.log(`[${new Date().toISOString()}] Auth required, bot protection:`, message.botProtection);
+            
+            // Сохраняем ключи
+            if (message.turnstileSiteKey) {
+              setTurnstileSiteKey(message.turnstileSiteKey);
+            }
+            if (message.publicKey) {
+              setPublicKey(message.publicKey);
+            }
+            if (message.keyExpiresAt) {
+              setKeyExpiresAt(message.keyExpiresAt);
+            }
+            
+            // Всегда проверяем токен сессии сначала
+            const savedToken = getSecureCookie('session_token');
+            
+            if (savedToken && !isAutoLogin) {
+              // Пытаемся войти с токеном
+              console.log(`[${new Date().toISOString()}] Attempting auto-login with session token`);
+              setIsAutoLogin(true);
+              const authMessage: AuthMessage = {
+                type: "auth",
+                sessionToken: savedToken,
+              };
+              socket.send(JSON.stringify(authMessage));
+              return;
+            }
+            
+            // Если нет токена или токен недействителен, проверяем защиту от ботов
+            if (message.botProtection) {
+              // Проверяем, не проходили ли мы уже защиту от ботов
+              const botProtectionPassed = localStorage.getItem('bot_protection_passed');
+              const botProtectionExpiry = localStorage.getItem('bot_protection_expiry');
+              
+              if (botProtectionPassed && botProtectionExpiry) {
+                const expiryTime = parseInt(botProtectionExpiry);
+                if (Date.now() < expiryTime) {
+                  // Защита от ботов уже пройдена и не истекла - показываем форму входа
+                  console.log(`[${new Date().toISOString()}] Bot protection already passed, showing login form`);
+                  setBotProtectionRequired(false);
+                  setIsConnecting(false);
+                  setIsAuthenticated(false);
+                  return;
+                } else {
+                  // Защита от ботов истекла - очищаем состояние
+                  localStorage.removeItem('bot_protection_passed');
+                  localStorage.removeItem('bot_protection_expiry');
+                }
+              }
+              
+              // Защита от ботов включена и не пройдена - показываем компонент защиты
+              console.log(`[${new Date().toISOString()}] Showing bot protection component`);
+              setBotProtectionRequired(true);
+              setIsConnecting(false);
+            } else {
+              // Защита от ботов отключена - показываем форму входа
+              console.log(`[${new Date().toISOString()}] Showing login form`);
+              setIsConnecting(false);
+              setIsAuthenticated(false);
+            }
+            break;
+            
+          case 'auth_success':
+            console.log(`[${new Date().toISOString()}] Auth success, messages count:`, message.messages?.length || 0);
+            setIsAuthenticated(true);
+            setAuthError("");
+            setMessages(message.messages || []);
             setIsConnecting(false);
-            return;
-          } else {
+            setIsAutoLogin(false);
+            setBotProtectionRequired(false);
+            
+            // Сохраняем каналы если есть
+            if (message.channels) {
+              setChannels(message.channels);
+            }
+            
+            // Сохраняем токен сессии если есть
+            if (message.sessionToken) {
+              setSessionToken(message.sessionToken);
+              setSecureCookie('session_token', message.sessionToken, 7);
+            }
+            break;
+            
+          case 'auth_failed':
+            console.log(`[${new Date().toISOString()}] Auth failed:`, message.error);
+            setIsAuthenticated(false);
+            setAuthError(message.error);
+            setIsConnecting(false);
+            setIsAutoLogin(false);
+            setBotProtectionRequired(false);
+            
+            // Удаляем неверный cookie и состояние защиты от ботов
+            removeSecureCookie('chat_session');
+            removeSecureCookie('session_token');
+            localStorage.removeItem('bot_protection_passed');
+            localStorage.removeItem('bot_protection_expiry');
+            break;
+            
+          case 'bot_protection_required':
+            console.log(`[${new Date().toISOString()}] Bot protection required:`, message.challenge);
+            // Эта обработка теперь происходит в компоненте BotProtection
+            break;
+            
+          case 'bot_protection_success':
+            console.log(`[${new Date().toISOString()}] Bot protection success`);
+            setBotProtectionRequired(false);
             setIsConnecting(false);
             setIsAuthenticated(false);
-          }
-        }
-        
-        // 3. Если включена защита от ботов и мы не в состоянии autoLogin
-        if (message.botProtection && !isAutoLogin) {
-          setBotProtectionRequired(true);
-          setIsConnecting(false);
-          return;
-        }
-        
-        // 4. Если защиты от ботов нет, проверяем сохраненный пароль
-        if (!isAutoLogin) {
-          const savedPassword = getSecureCookie('chat_session');
-          if (savedPassword) {
-            setIsAutoLogin(true);
-            const authMessage: AuthMessage = {
-              type: "auth",
-              password: savedPassword,
-            };
-            socket.send(JSON.stringify(authMessage));
-          } else {
-            // Если нет сохраненного пароля, показываем форму входа
-            setIsConnecting(false);
-            setIsAuthenticated(false);
-          }
-        }
-      } else if (message.type === "auth_success") {
-        setIsAuthenticated(true);
-        setAuthError("");
-        setMessages(message.messages);
-        setIsConnecting(false);
-        setIsAutoLogin(false);
-        setBotProtectionRequired(false);
-        
-        // Сохраняем каналы если есть
-        if (message.channels) {
-          setChannels(message.channels);
-        }
-        
-        // Сохраняем токен сессии если есть
-        if (message.sessionToken) {
-          setSessionToken(message.sessionToken);
-          setSecureCookie('session_token', message.sessionToken, 7);
-        }
-      } else if (message.type === "auth_failed") {
-        setIsAuthenticated(false);
-        setAuthError(message.error);
-        setIsConnecting(false);
-        setIsAutoLogin(false);
-        setBotProtectionRequired(false);
-        
-        // Удаляем неверный cookie
-        removeSecureCookie('chat_session');
-      } else if (message.type === "bot_protection_required") {
-        setBotProtectionRequired(true);
-        setCustomChallenge(message.challenge);
-        
-        // Сохраняем токен сессии если есть
-        if (message.sessionToken) {
-          setSessionToken(message.sessionToken);
-          setSecureCookie('session_token', message.sessionToken, 7);
-        }
-      } else if (message.type === "bot_protection_success") {
-        setBotProtectionRequired(false);
-        
-        // Если пользователь уже аутентифицирован, показываем чат
-        if (isAuthenticated) {
-          // Ничего не делаем, пользователь уже в чате
-        } else {
-          // Пользователь прошел 2FA, но не аутентифицирован
-          // Показываем форму входа
-          setIsConnecting(false);
-          setIsAuthenticated(false);
-        }
-      } else if (message.type === "bot_protection_failed") {
-        setAuthError(message.error);
-      } else if (message.type === "push_notification") {
-        // Показываем push-уведомление
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification(message.title, {
-            body: message.body,
-            icon: message.icon,
-            badge: message.icon,
-            tag: 'chat-message',
-            requireInteraction: false,
-          });
-        }
-      } else if (message.type === "delete") {
-        // Добавляем сообщение в состояние удаления для анимации
-        setMessages(prevMessages => {
-          const messageToDelete = prevMessages.find(msg => msg.id === message.id);
-          if (messageToDelete) {
-            // Запускаем анимацию удаления
-            setTimeout(() => {
-              setMessages(currentMessages => 
-                currentMessages.filter(msg => msg.id !== message.id)
+            
+            // Сохраняем состояние защиты от ботов на 1 час
+            const expiryTime = Date.now() + (60 * 60 * 1000); // 1 час
+            localStorage.setItem('bot_protection_passed', 'true');
+            localStorage.setItem('bot_protection_expiry', expiryTime.toString());
+            console.log(`[${new Date().toISOString()}] Bot protection state saved, expires at:`, new Date(expiryTime));
+            break;
+            
+          case 'bot_protection_failed':
+            console.log(`[${new Date().toISOString()}] Bot protection failed:`, message.error);
+            setAuthError(message.error);
+            break;
+            
+          case 'push_notification':
+            console.log(`[${new Date().toISOString()}] Push notification:`, message.title, message.body);
+            if ('Notification' in window && Notification.permission === 'granted') {
+              new Notification(message.title, {
+                body: message.body,
+                icon: message.icon,
+                badge: message.icon,
+                tag: 'chat-message',
+                requireInteraction: false,
+              });
+            }
+            break;
+            
+          case 'delete':
+            console.log(`[${new Date().toISOString()}] Delete message:`, message.id);
+            setMessages(prevMessages => {
+              const messageToDelete = prevMessages.find(msg => msg.id === message.id);
+              if (messageToDelete) {
+                // Запускаем анимацию удаления
+                setTimeout(() => {
+                  setMessages(currentMessages => 
+                    currentMessages.filter(msg => msg.id !== message.id)
+                  );
+                }, 500); // Время анимации
+              }
+              return prevMessages;
+            });
+            break;
+            
+          case 'messages_cleaned':
+            console.log(`[${new Date().toISOString()}] Messages cleaned:`, message.deletedCount, 'messages');
+            if ('Notification' in window && Notification.permission === 'granted') {
+              new Notification("Сообщения очищены", {
+                body: `Удалено ${message.deletedCount} старых сообщений`,
+                icon: "/favicon.ico",
+                badge: "/favicon.ico",
+                tag: 'chat-cleanup',
+                requireInteraction: false,
+              });
+            }
+            
+            // Показываем уведомление в интерфейсе
+            setCleanupNotification({
+              count: message.deletedCount,
+              timestamp: message.timestamp
+            });
+            
+            // Если есть список удаленных ID, удаляем их из состояния
+            if (message.deletedIds && message.deletedIds.length > 0) {
+              setMessages(prevMessages => 
+                prevMessages.filter(msg => !message.deletedIds!.includes(msg.id))
               );
-            }, 500); // Время анимации
-          }
-          return prevMessages;
-        });
-      } else if (message.type === "messages_cleaned") {
-        // Уведомляем пользователя об очистке сообщений
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification("Сообщения очищены", {
-            body: `Удалено ${message.deletedCount} старых сообщений`,
-            icon: "/favicon.ico",
-            badge: "/favicon.ico",
-            tag: 'chat-cleanup',
-            requireInteraction: false,
-          });
-        }
-        
-        // Показываем уведомление в интерфейсе
-        setCleanupNotification({
-          count: message.deletedCount,
-          timestamp: message.timestamp
-        });
-        
-        // Если есть список удаленных ID, удаляем их из состояния
-        if (message.deletedIds && message.deletedIds.length > 0) {
-          setMessages(prevMessages => 
-            prevMessages.filter(msg => !message.deletedIds!.includes(msg.id))
-          );
-        }
-        
-        // Скрываем уведомление через 5 секунд
-        setTimeout(() => {
-          setCleanupNotification(null);
-        }, 5000);
-      } else if (message.type === "add") {
-        const foundIndex = messages.findIndex((m) => m.id === message.id);
-        if (foundIndex === -1) {
-          // probably someone else who added a message
-          setMessages((messages) => [
-            ...messages,
-            {
-              id: message.id,
-              content: message.content,
-              user: message.user,
-              role: message.role,
-            },
-          ]);
-        } else {
-          // this usually means we ourselves added a message
-          // and it was broadcasted back
-          // so let's replace the message with the new message
-          setMessages((messages) => {
-            return messages
-              .slice(0, foundIndex)
-              .concat({
-                id: message.id,
-                content: message.content,
-                user: message.user,
-                role: message.role,
-              })
-              .concat(messages.slice(foundIndex + 1));
-          });
-          
-
-        }
-      } else if (message.type === "update") {
-        setMessages((messages) =>
-          messages.map((m) =>
-            m.id === message.id
-              ? {
+            }
+            
+            // Скрываем уведомление через 5 секунд
+            setTimeout(() => {
+              setCleanupNotification(null);
+            }, 5000);
+            break;
+            
+          case 'add':
+            console.log(`[${new Date().toISOString()}] Adding new message:`, message);
+            console.log(`[${new Date().toISOString()}] Current messages count:`, messages.length);
+            
+            // Проверяем, что сообщение для текущего канала
+            const messageChannelId = (message as any).channelId || 'general';
+            
+            // Получаем текущий канал из состояния
+            // По умолчанию используем 'general' если каналы не загружены
+            const currentChannelId = channels.length > 0 ? 'general' : 'general';
+            
+            console.log(`[${new Date().toISOString()}] Message channel: ${messageChannelId}, current channel: ${currentChannelId}`);
+            
+            // Пока что принимаем все сообщения, фильтрация будет в компоненте
+            const foundIndex = messages.findIndex((m) => m.id === message.id);
+            console.log(`[${new Date().toISOString()}] Found existing message at index:`, foundIndex);
+            
+            if (foundIndex === -1) {
+              // probably someone else who added a message
+              setMessages((messages) => {
+                const newMessage: ChatMessage = {
                   id: message.id,
                   content: message.content,
                   user: message.user,
-                  role: message.role,
-                }
-              : m,
-          ),
-        );
-      } else if (message.type === "all") {
-        setMessages(message.messages);
+                  role: message.role as "user" | "assistant",
+                  channelId: messageChannelId,
+                };
+                const newMessages = [...messages, newMessage];
+                console.log(`[${new Date().toISOString()}] Messages state updated, new count:`, newMessages.length);
+                return newMessages;
+              });
+            } else {
+              // this usually means we ourselves added a message
+              // and it was broadcasted back
+              // so let's replace the message with the new message
+              setMessages((messages) => {
+                const updatedMessage: ChatMessage = {
+                  id: message.id,
+                  content: message.content,
+                  user: message.user,
+                  role: message.role as "user" | "assistant",
+                  channelId: messageChannelId,
+                };
+                const updatedMessages = messages
+                  .slice(0, foundIndex)
+                  .concat(updatedMessage)
+                  .concat(messages.slice(foundIndex + 1));
+                console.log(`[${new Date().toISOString()}] Message updated, new count:`, updatedMessages.length);
+                return updatedMessages;
+              });
+            }
+            break;
+            
+          case 'update':
+            setMessages((messages) =>
+              messages.map((m) =>
+                m.id === message.id
+                  ? {
+                      id: message.id,
+                      content: message.content,
+                      user: message.user,
+                      role: message.role as "user" | "assistant",
+                      channelId: (message as any).channelId || 'general',
+                    }
+                  : m,
+              ),
+            );
+            break;
+            
+          case 'all':
+            setMessages(message.messages);
+            break;
+            
+          case 'channel_create_success':
+            console.log(`[${new Date().toISOString()}] Channel created successfully:`, message.channel);
+            // Обновляем список каналов
+            setChannels(prev => [...prev, message.channel]);
+            break;
+            
+          case 'channel_create_failed':
+            console.log(`[${new Date().toISOString()}] Channel creation failed:`, message.error);
+            // Можно показать уведомление об ошибке
+            break;
+            
+          case 'channel_list':
+            console.log(`[${new Date().toISOString()}] Received channel list:`, message.channels?.length || 0);
+            setChannels(message.channels || []);
+            break;
+            
+          case 'channel_switch':
+            console.log(`[${new Date().toISOString()}] Channel switched to:`, message.channelId);
+            setCurrentChannelId(message.channelId);
+            setMessages(message.messages || []);
+            break;
+            
+          case 'channel_switch_required':
+            console.log(`[${new Date().toISOString()}] Channel switch required:`, message.channelId, message.reason);
+            setCurrentChannelId(message.channelId);
+            // Можно показать уведомление о причине переключения
+            break;
+            
+          case 'channel_delete_success':
+            console.log(`[${new Date().toISOString()}] Channel deleted successfully:`, message.channelName);
+            // Каналы обновятся через channel_list
+            break;
+            
+          case 'channel_delete_failed':
+            console.log(`[${new Date().toISOString()}] Channel deletion failed:`, message.error);
+            // Можно показать уведомление об ошибке
+            break;
+            
+          default:
+            console.log(`[${new Date().toISOString()}] Unknown message type:`, message.type);
+        }
+      } catch (error) {
+        console.error(`[${new Date().toISOString()}] Error parsing message:`, error, 'Raw data:', evt.data);
       }
     },
     onOpen: () => {
@@ -328,10 +440,16 @@ function ChatApp() {
   const handleLogout = () => {
     removeSecureCookie('chat_session');
     removeSecureCookie('session_token');
+    localStorage.removeItem('bot_protection_passed');
+    localStorage.removeItem('bot_protection_expiry');
     setIsAuthenticated(false);
     setMessages([]);
     setAuthError("");
     setSessionToken("");
+  };
+
+  const handleChannelSwitch = (channelId: string) => {
+    setCurrentChannelId(channelId);
   };
 
   if (isConnecting) {
@@ -392,6 +510,8 @@ function ChatApp() {
           onLogout={handleLogout}
           isMobile={isMobile}
           channels={channels}
+          onChannelSwitch={handleChannelSwitch}
+          currentChannelId={currentChannelId}
         />
     </>
   );

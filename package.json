@@ -30,9 +30,9 @@
     "wrangler": "4.21.x"
   },
   "scripts": {
-    "cf-typegen": "wrangler types ./src/server/worker-configuration.d.ts",
-    "check": "tsc --project src/client && tsc --project src/server && wrangler deploy --dry-run",
+    "dev": "CHAT_PASSWORD=password123 wrangler dev",
+    "dev:debug": "CHAT_PASSWORD=password123 wrangler dev --debug",
     "deploy": "wrangler deploy",
-    "dev": "wrangler dev"
+    "build": "wrangler build"
   }
 }

@@ -15,20 +15,26 @@ export type Channel = {
 };
 
 export type Message =
-  | { type: "add"; id: string; user: string; role: "user" | "assistant"; content: string; channelId?: string }
-  | { type: "update"; id: string; user: string; role: "user" | "assistant"; content: string; channelId?: string }
+  | { type: "add"; id: string; content: string; user: string; role: "user" | "assistant"; channelId?: string }
+  | { type: "update"; id: string; content: string; user: string; role: "user" | "assistant"; channelId?: string }
   | { type: "delete"; id: string; channelId?: string }
   | { type: "all"; messages: ChatMessage[]; channelId?: string }
-  | { type: "auth_required"; botProtection?: boolean; turnstileSiteKey?: string; publicKey?: string; keyExpiresAt?: number }
+  | { type: "auth_required"; botProtection: boolean; turnstileSiteKey?: string; publicKey?: string; keyExpiresAt?: number }
   | { type: "auth_success"; messages: ChatMessage[]; sessionToken?: string; channels?: Channel[] }
   | { type: "auth_failed"; error: string }
-  | { type: "push_notification"; title: string; body: string; icon: string }
-  | { type: "messages_cleaned"; deletedCount: number; timestamp: number; deletedIds?: string[]; channelId?: string }
+  | { type: "push_notification"; title: string; body: string; icon?: string }
+  | { type: "messages_cleaned"; deletedCount: number; timestamp: number; deletedIds?: string[] }
   | { type: "bot_protection_required"; challenge: any; sessionToken?: string }
-  | { type: "bot_protection_success" }
+  | { type: "bot_protection_success"; sessionToken?: string }
   | { type: "bot_protection_failed"; error: string }
   | { type: "channel_create"; channel: Channel }
+  | { type: "channel_create_success"; channel: Channel }
+  | { type: "channel_create_failed"; error: string }
+  | { type: "channel_delete"; channelId: string }
+  | { type: "channel_delete_success"; channelId: string; channelName: string }
+  | { type: "channel_delete_failed"; error: string }
   | { type: "channel_switch"; channelId: string; messages: ChatMessage[] }
+  | { type: "channel_switch_required"; channelId: string; reason: string }
   | { type: "channel_list"; channels: Channel[] };
 
 export type AuthMessage = {

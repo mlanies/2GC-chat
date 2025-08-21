@@ -3,8 +3,8 @@ export const hashPassword = async (password: string): Promise<string> => {
   const encoder = new TextEncoder();
   const data = encoder.encode(password);
   
-  // Создаем случайную соль
-  const salt = crypto.getRandomValues(new Uint8Array(16));
+  // Используем фиксированную соль для совместимости с сервером
+  const salt = new TextEncoder().encode('durable-chat-salt-2024');
   
   // Импортируем ключ для PBKDF2
   const keyMaterial = await crypto.subtle.importKey(

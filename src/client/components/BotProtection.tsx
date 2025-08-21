@@ -24,12 +24,46 @@ export function BotProtection({
       setCustomAnswer('');
     }
   }, [serverError]);
+
+  // Обработка сообщений от сервера
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      try {
+        const message = JSON.parse(event.data);
+        
+        if (message.type === 'bot_protection_required' && message.challenge) {
+          console.log(`[${new Date().toISOString()}] Received custom challenge:`, message.challenge);
+          setCustomChallenge(message.challenge);
+          setCurrentStep(2);
+          setError('');
+        } else if (message.type === 'bot_protection_success') {
+          console.log(`[${new Date().toISOString()}] Bot protection completed successfully`);
+          onSuccess();
+        } else if (message.type === 'bot_protection_failed') {
+          console.log(`[${new Date().toISOString()}] Bot protection failed:`, message.error);
+          setError(message.error);
+          setAttempts(0);
+        }
+      } catch (error) {
+        console.error(`[${new Date().toISOString()}] Error parsing bot protection message:`, error);
+      }
+    };
+
+    // Добавляем обработчик сообщений
+    socket.addEventListener('message', handleMessage);
+    
+    return () => {
+      socket.removeEventListener('message', handleMessage);
+    };
+  }, [socket, onSuccess]);
+
   const [currentStep, setCurrentStep] = useState(1);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [customAnswer, setCustomAnswer] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [attempts, setAttempts] = useState(0);
+  const [customChallenge, setCustomChallenge] = useState<any>(challenge);
   const maxAttempts = 3;
 
   const handleTurnstileSuccess = (token: string) => {
@@ -195,11 +229,11 @@ export function BotProtection({
             <div className="challenge">
               <h3>Шаг 2: Решите задачу</h3>
               
-              {challenge && (
+              {customChallenge && (
                 <div className="question">
-                  <p><strong>Вопрос:</strong> {challenge.question}</p>
-                  {challenge.hint && (
-                    <p className="hint">Подсказка: {challenge.hint}</p>
+                  <p><strong>Вопрос:</strong> {customChallenge.question}</p>
+                  {customChallenge.hint && (
+                    <p className="hint">Подсказка: {customChallenge.hint}</p>
                   )}
                 </div>
               )}
